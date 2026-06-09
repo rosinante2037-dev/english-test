@@ -188,12 +188,30 @@ function startQuiz(section) {
     questions = ALL_QUESTIONS.filter(function(q) {
         return q.test === currentTest && q.section === section;
     });
-    // Shuffle
-    for (var i = questions.length - 1; i > 0; i--) {
-        var j = Math.floor(Math.random() * (i + 1));
-        var temp = questions[i];
-        questions[i] = questions[j];
-        questions[j] = temp;
+    // Giữ nguyên thứ tự câu hỏi, chỉ xáo trộn ABCD trong mỗi câu
+    for (var i = 0; i < questions.length; i++) {
+        var q = questions[i];
+        var opts = q.options.slice(); // copy
+        var origAns = parseInt(q.answer); // 0-based index
+        var indices = [];
+        for (var k = 0; k < opts.length; k++) indices.push(k);
+        // Shuffle indices
+        for (var k = indices.length - 1; k > 0; k--) {
+            var j = Math.floor(Math.random() * (k + 1));
+            var tmp = indices[k]; indices[k] = indices[j]; indices[j] = tmp;
+        }
+        // Build shuffled options
+        var shuffledOpts = [];
+        for (var k = 0; k < indices.length; k++) {
+            shuffledOpts.push(opts[indices[k]]);
+        }
+        // Find new position of correct answer
+        var newAns = -1;
+        for (var k = 0; k < indices.length; k++) {
+            if (indices[k] === origAns) { newAns = k; break; }
+        }
+        q.shuffledOpts = shuffledOpts;
+        q.shuffledAns = newAns;
     }
     currentIndex = 0;
     answers = {};
@@ -234,20 +252,22 @@ function showQuestion() {
     var optDiv = document.getElementById('options');
     optDiv.innerHTML = '';
     var letters = ['A', 'B', 'C', 'D'];
+    var shuffledOpts = q.shuffledOpts || q.options;
+    var shuffledAns = q.shuffledAns !== undefined ? q.shuffledAns : (q.answer !== '' ? parseInt(q.answer) : -1);
     
-    for (var i = 0; i < q.options.length; i++) {
+    for (var i = 0; i < shuffledOpts.length; i++) {
         var div = document.createElement('div');
         div.className = 'option';
         if (answers[q.id] === i) div.classList.add('sel');
         if (reviewed[q.id]) {
             if (answers[q.id] === i) {
                 div.classList.remove('sel');
-                div.classList.add(q.answer !== '' && i === parseInt(q.answer) ? 'cor' : 'wro');
-            } else if (q.answer !== '' && i === parseInt(q.answer)) {
+                div.classList.add(shuffledAns >= 0 && i === shuffledAns ? 'cor' : 'wro');
+            } else if (shuffledAns >= 0 && i === shuffledAns) {
                 div.classList.add('show-cor');
             }
         }
-        div.innerHTML = '<span class="dot"></span><span>' + q.options[i] + '</span>';
+        div.innerHTML = '<span class="dot"></span><span>' + shuffledOpts[i] + '</span>';
         div.onclick = (function(idx) { return function() { selectOption(idx); }; })(i);
         optDiv.appendChild(div);
     }
@@ -255,11 +275,11 @@ function showQuestion() {
     // Feedback
     var fb = document.getElementById('feedback');
     if (reviewed[q.id]) {
-        if (q.answer !== '' && answers[q.id] === parseInt(q.answer)) {
+        if (shuffledAns >= 0 && answers[q.id] === shuffledAns) {
             fb.className = 'feedback cor';
             fb.innerHTML = '✅ <strong>Đúng rồi!</strong>';
-        } else if (q.answer !== '') {
-            var cl = letters[parseInt(q.answer)];
+        } else if (shuffledAns >= 0) {
+            var cl = letters[shuffledAns];
             fb.className = 'feedback wro';
             fb.innerHTML = '❌ <strong>Sai rồi!</strong><div class="ans">Đáp án đúng: <strong>' + cl + '</strong></div>';
         } else {
@@ -291,30 +311,31 @@ function selectOption(idx) {
     
     var opts = document.querySelectorAll('.option');
     var letters = ['A', 'B', 'C', 'D'];
+    var shuffledAns = q.shuffledAns !== undefined ? q.shuffledAns : (q.answer !== '' ? parseInt(q.answer) : -1);
     
     for (var i = 0; i < opts.length; i++) {
         opts[i].classList.remove('sel');
         if (i === idx) {
-            if (q.answer !== '' && i === parseInt(q.answer)) {
+            if (shuffledAns >= 0 && i === shuffledAns) {
                 opts[i].classList.add('cor');
-            } else if (q.answer !== '') {
+            } else if (shuffledAns >= 0) {
                 opts[i].classList.add('wro');
             } else {
                 opts[i].classList.add('sel');
             }
-        } else if (q.answer !== '' && i === parseInt(q.answer)) {
+        } else if (shuffledAns >= 0 && i === shuffledAns) {
             opts[i].classList.add('show-cor');
         }
     }
     
     var fb = document.getElementById('feedback');
-    if (q.answer !== '') {
-        if (idx === parseInt(q.answer)) {
+    if (shuffledAns >= 0) {
+        if (idx === shuffledAns) {
             fb.className = 'feedback cor';
             fb.innerHTML = '✅ <strong>Đúng rồi!</strong>';
         } else {
             fb.className = 'feedback wro';
-            fb.innerHTML = '❌ <strong>Sai rồi!</strong><div class="ans">Đáp án đúng: <strong>' + letters[parseInt(q.answer)] + '</strong></div>';
+            fb.innerHTML = '❌ <strong>Sai rồi!</strong><div class="ans">Đáp án đúng: <strong>' + letters[shuffledAns] + '</strong></div>';
         }
     } else {
         fb.className = 'feedback cor';
@@ -352,9 +373,11 @@ function endQuiz() {
     for (var id in reviewed) {
         for (var qi = 0; qi < questions.length; qi++) {
             if (questions[qi].id === id) {
-                if (questions[qi].answer !== '') {
+                var q = questions[qi];
+                var shuffledAns = q.shuffledAns !== undefined ? q.shuffledAns : (q.answer !== '' ? parseInt(q.answer) : -1);
+                if (shuffledAns >= 0) {
                     hasAnswers = true;
-                    if (answers[id] === parseInt(questions[qi].answer)) correct++;
+                    if (answers[id] === shuffledAns) correct++;
                 }
                 break;
             }
@@ -370,12 +393,13 @@ function endQuiz() {
     var tableHtml = '<table><tr><th>#</th><th>Câu hỏi</th><th>Đáp án</th><th>KQ</th></tr>';
     for (var i = 0; i < questions.length; i++) {
         var q = questions[i];
+        var shuffledAns = q.shuffledAns !== undefined ? q.shuffledAns : (q.answer !== '' ? parseInt(q.answer) : -1);
         if (reviewed[q.id]) {
-            var isCorrect = answers[q.id] === parseInt(q.answer);
+            var isCorrect = answers[q.id] === shuffledAns;
             tableHtml += '<tr class="' + (isCorrect ? 'correct-row' : 'wrong-row') + '">';
             tableHtml += '<td>' + q.num + '</td>';
             tableHtml += '<td style="text-align:left;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + q.question.substring(0, 40) + '...</td>';
-            tableHtml += '<td>' + (q.answer !== '' ? letters[parseInt(q.answer)] : '—') + '</td>';
+            tableHtml += '<td>' + (shuffledAns >= 0 ? letters[shuffledAns] : '—') + '</td>';
             tableHtml += '<td>' + (isCorrect ? '✅' : '❌') + '</td></tr>';
         } else {
             tableHtml += '<tr><td>' + q.num + '</td><td style="text-align:left">' + q.question.substring(0, 40) + '...</td><td>—</td><td>⏳</td></tr>';
