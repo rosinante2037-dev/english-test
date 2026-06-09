@@ -408,25 +408,26 @@ function endQuiz() {
     for (var i = 0; i < questions.length; i++) {
         var q = questions[i];
         var shuffledAns = q.shuffledAns !== undefined ? q.shuffledAns : (q.answer !== '' ? parseInt(q.answer) : -1);
-        var selectedLetter = '-';
+        var shuffledOpts = q.shuffledOpts || q.options;
+        var selectedText = '-';
         var isCorrect = false;
         var isAnswered = false;
         
         if (reviewed[q.id]) {
             isAnswered = true;
-            selectedLetter = letters[answers[q.id]];
+            selectedText = letters[answers[q.id]] + '. ' + shuffledOpts[answers[q.id]];
             isCorrect = answers[q.id] === shuffledAns;
         }
         
-        var ansLetter = shuffledAns >= 0 ? letters[shuffledAns] : '—';
+        var ansText = shuffledAns >= 0 ? letters[shuffledAns] + '. ' + shuffledOpts[shuffledAns] : '—';
         var rowClass = isAnswered ? (isCorrect ? 'correct-row' : 'wrong-row') : '';
         var resultIcon = isAnswered ? (isCorrect ? '✅' : '❌') : '⏳';
         
         fullTableHtml += '<tr class="' + rowClass + '">';
         fullTableHtml += '<td>' + q.num + '</td>';
         fullTableHtml += '<td style="text-align:left;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + q.question.substring(0, 60) + (q.question.length > 60 ? '...' : '') + '</td>';
-        fullTableHtml += '<td><strong>' + ansLetter + '</strong></td>';
-        fullTableHtml += '<td>' + (isAnswered ? selectedLetter : '—') + '</td>';
+        fullTableHtml += '<td style="text-align:left;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong>' + ansText + '</strong></td>';
+        fullTableHtml += '<td style="text-align:left;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (isAnswered ? selectedText : '—') + '</td>';
         fullTableHtml += '<td>' + resultIcon + '</td></tr>';
         
         // Collect wrong answers
@@ -435,8 +436,8 @@ function endQuiz() {
             wrongHtml += '<div class="wrong-item">';
             wrongHtml += '<div class="wrong-q">❌ <strong>Câu ' + q.num + ':</strong> ' + q.question + '</div>';
             wrongHtml += '<div class="wrong-detail">';
-            wrongHtml += '<span class="wrong-ans">Bạn chọn: <span class="tag tag-wrong">' + selectedLetter + '</span></span>';
-            wrongHtml += '<span class="correct-ans">Đáp án đúng: <span class="tag tag-correct">' + ansLetter + '</span></span>';
+            wrongHtml += '<span class="wrong-ans">Bạn chọn: <span class="tag tag-wrong">' + selectedText + '</span></span><br>';
+            wrongHtml += '<span class="correct-ans">Đáp án đúng: <span class="tag tag-correct">' + ansText + '</span></span>';
             wrongHtml += '</div></div>';
         }
     }
