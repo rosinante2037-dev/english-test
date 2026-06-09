@@ -85,6 +85,15 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f0f2f5;
 .result-box .wrong-row{background:#ffebee}
 .back-btn-lg{padding:12px 30px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:600;margin-top:20px;transition:.2s}
 .back-btn-lg:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(102,126,234,.4)}
+/* Wrong answers section */
+.wrong-section{margin-top:25px;text-align:left}
+.wrong-section h3{color:#c62828;font-size:16px;margin-bottom:15px;text-align:center}
+.wrong-item{background:#fff5f5;border:1px solid #ffcdd2;border-radius:8px;padding:12px;margin-bottom:10px}
+.wrong-q{font-size:14px;margin-bottom:8px;line-height:1.4}
+.wrong-detail{display:flex;gap:20px;font-size:13px;flex-wrap:wrap}
+.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-weight:700;font-size:13px}
+.tag-wrong{background:#ffcdd2;color:#c62828}
+.tag-correct{background:#c8e6c9;color:#2e7d32}
 @media(max-width:600px){.test-grid,.section-grid{grid-template-columns:1fr}.nav-bar{flex-direction:column}.nav-btn{width:100%}.stats{flex-direction:column}}
 </style>
 </head>
@@ -390,22 +399,57 @@ function endQuiz() {
     hide('quiz');
     
     var letters = ['A', 'B', 'C', 'D'];
-    var tableHtml = '<table><tr><th>#</th><th>Câu hỏi</th><th>Đáp án</th><th>KQ</th></tr>';
+    
+    // Build full table + wrong answers section
+    var fullTableHtml = '<table><tr><th>#</th><th>Câu hỏi</th><th>Đáp án đúng</th><th>Bạn chọn</th><th>KQ</th></tr>';
+    var wrongHtml = '';
+    var wrongCount = 0;
+    
     for (var i = 0; i < questions.length; i++) {
         var q = questions[i];
         var shuffledAns = q.shuffledAns !== undefined ? q.shuffledAns : (q.answer !== '' ? parseInt(q.answer) : -1);
+        var selectedLetter = '-';
+        var isCorrect = false;
+        var isAnswered = false;
+        
         if (reviewed[q.id]) {
-            var isCorrect = answers[q.id] === shuffledAns;
-            tableHtml += '<tr class="' + (isCorrect ? 'correct-row' : 'wrong-row') + '">';
-            tableHtml += '<td>' + q.num + '</td>';
-            tableHtml += '<td style="text-align:left;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + q.question.substring(0, 40) + '...</td>';
-            tableHtml += '<td>' + (shuffledAns >= 0 ? letters[shuffledAns] : '—') + '</td>';
-            tableHtml += '<td>' + (isCorrect ? '✅' : '❌') + '</td></tr>';
-        } else {
-            tableHtml += '<tr><td>' + q.num + '</td><td style="text-align:left">' + q.question.substring(0, 40) + '...</td><td>—</td><td>⏳</td></tr>';
+            isAnswered = true;
+            selectedLetter = letters[answers[q.id]];
+            isCorrect = answers[q.id] === shuffledAns;
+        }
+        
+        var ansLetter = shuffledAns >= 0 ? letters[shuffledAns] : '—';
+        var rowClass = isAnswered ? (isCorrect ? 'correct-row' : 'wrong-row') : '';
+        var resultIcon = isAnswered ? (isCorrect ? '✅' : '❌') : '⏳';
+        
+        fullTableHtml += '<tr class="' + rowClass + '">';
+        fullTableHtml += '<td>' + q.num + '</td>';
+        fullTableHtml += '<td style="text-align:left;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + q.question.substring(0, 60) + (q.question.length > 60 ? '...' : '') + '</td>';
+        fullTableHtml += '<td><strong>' + ansLetter + '</strong></td>';
+        fullTableHtml += '<td>' + (isAnswered ? selectedLetter : '—') + '</td>';
+        fullTableHtml += '<td>' + resultIcon + '</td></tr>';
+        
+        // Collect wrong answers
+        if (isAnswered && !isCorrect && shuffledAns >= 0) {
+            wrongCount++;
+            wrongHtml += '<div class="wrong-item">';
+            wrongHtml += '<div class="wrong-q">❌ <strong>Câu ' + q.num + ':</strong> ' + q.question + '</div>';
+            wrongHtml += '<div class="wrong-detail">';
+            wrongHtml += '<span class="wrong-ans">Bạn chọn: <span class="tag tag-wrong">' + selectedLetter + '</span></span>';
+            wrongHtml += '<span class="correct-ans">Đáp án đúng: <span class="tag tag-correct">' + ansLetter + '</span></span>';
+            wrongHtml += '</div></div>';
         }
     }
-    tableHtml += '</table>';
+    fullTableHtml += '</table>';
+    
+    // Wrong summary section
+    var wrongSection = '';
+    if (wrongCount > 0) {
+        wrongSection = '<div class="wrong-section">';
+        wrongSection += '<h3>❌ Các câu trả lời sai (' + wrongCount + ')</h3>';
+        wrongSection += wrongHtml;
+        wrongSection += '</div>';
+    }
     
     var rc = document.getElementById('resultContent');
     rc.innerHTML = '';
@@ -420,7 +464,8 @@ function endQuiz() {
     if (!hasAnswers && done > 0) {
         h += '<p style="color:#f57c00;font-size:14px;margin:10px 0">⚠️ Chưa có đáp án cho đề này.</p>';
     }
-    h += tableHtml;
+    h += fullTableHtml;
+    h += wrongSection;
     h += '<button class="back-btn-lg" onclick="backToHome()">🏠 Về trang chủ</button>';
     
     rc.innerHTML = h;
